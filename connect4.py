@@ -125,8 +125,8 @@ class ConnectNBoard():
         return False
 
     def get_custom_board(self, player_1_sym = 1, player_2_sym = -1):
-        pl_b_1 = ut.from_bin_to_np(self.player1_board, self.max_pos) * player_1_sym
-        pl_b_2 = ut.from_bin_to_np(self.player2_board, self.max_pos) * player_2_sym
+        pl_b_1 = ut.from_bin_to_np(self.player1_board, self.max_pos, expected_size=(self.wid, self.len)) * player_1_sym
+        pl_b_2 = ut.from_bin_to_np(self.player2_board, self.max_pos, expected_size=(self.wid, self.len)) * player_2_sym
         return pl_b_1 + pl_b_2
 
     def print_board(self):

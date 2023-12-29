@@ -36,7 +36,7 @@ class GenericResidualNetwork(Module):
         super(GenericResidualNetwork, self).__init__()
 
         # For now, simple, no downscale
-        self.input_layer = ResidualBlock(in_channels=in_channels, n_channels=n_channels, kernel_size=kernel_size)
+        self.input_layer = ConvolutionalBlock(in_channels=in_channels, n_channels=n_channels, kernel_size=kernel_size)
 
         self.residuals = ModuleList([ResidualBlock(in_channels=n_channels, n_channels=n_channels, kernel_size=kernel_size) for _ in range(n_layers-1)])
 

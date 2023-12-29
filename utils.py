@@ -11,3 +11,8 @@ def from_bin_to_np(bin, length, expected_size):
         bin >>= 1
         i+=1
     return res.reshape(expected_size)
+
+def fill_defaults(orig: dict, default: dict):
+    for k in default.keys():
+        if k not in orig:
+            orig[k] = default[k]

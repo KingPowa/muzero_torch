@@ -13,7 +13,7 @@ class DynamicsNetwork(Module):
     def forward(self, x):
 
         next_state = self.first_net(x)
-        return next_state, softmax(self.reward_predictor(next_state), dim=1)
+        return next_state, self.reward_predictor(next_state)
     
 class PredictionNetwork(Module):
 
@@ -29,7 +29,7 @@ class PredictionNetwork(Module):
         x = self.first_net(x)
         pp = self.policy_predictor(x)
         vp = self.value_predictor(x)
-        return softmax(vp, dim=1), softmax(pp, dim=1)
+        return vp, pp
     
 class RepresentationNetwork(Module):
 

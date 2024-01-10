@@ -5,16 +5,33 @@ NORMAL_REWARD = 0.0
 
 import numpy as np
 from connect4 import ConnectNBoard
-
+from typing import List, Tuple
 from gym import Env
 from gym.spaces import Box, Dict, Discrete
 from policies.RandomPolicy import RandomPolicy
+from abc import ABC, abstractmethod
 
+class AdvancedDiscreteEnv(Env):
 
-class ConnectNEnv(Env):
+    @property
+    @abstractmethod
+    def possible_actions(self) -> List:
+        pass
+
+    @property
+    @abstractmethod
+    def single_obs_size(self) -> Tuple:
+        pass
+
+    @property
+    @abstractmethod
+    def action_mask(self) -> np.array:
+        pass
+
+class ConnectNEnv(AdvancedDiscreteEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, board_w = 6, board_l = 7, connect = 4, opponent_policy = "random"):
+    def __init__(self, board_w = 6, board_l = 7, connect = 4):
         self.board_w = board_w
         self.board_l = board_l
         self.window_size = 512  # The size of the window
@@ -33,9 +50,8 @@ class ConnectNEnv(Env):
         # Define the engine
         self.engine = ConnectNBoard(len = board_l, wid = board_w, connect= connect)
 
-        # Set opponent policy
-        if opponent_policy == "random": self.opponent_policy = RandomPolicy(self.action_space)
-        else: self.opponent_policy = opponent_policy
+        # Turn
+        self.turn = True
             
 
     @property
@@ -46,6 +62,10 @@ class ConnectNEnv(Env):
     @property
     def action_mask(self):
         return np.array(self.engine.get_available_columns_mask(), dtype=np.int8)
+    
+    @property
+    def single_obs_size(self):
+        return (1, 1, self.engine.wid, self.engine.len,)
 
     def step(self, action):
         
@@ -58,29 +78,29 @@ class ConnectNEnv(Env):
         # Current player action
         won = self.engine.place(action)
 
-        if won is None:
-            return self._get_state(), TIE_REWARD, True, {}
-        elif won:
-            return self._get_state(), WIN_REWARD, True, {}
-        
-        # Simulate
-        opponent_action = self.opponent_policy.compute_actions(self._get_state())
-        opp_won = self.engine.place(opponent_action)
+        state = self._get_state()
 
-        if opp_won is None:
-            return self._get_state(), TIE_REWARD, True, {}
-        elif opp_won:
-            return self._get_state(), LOSS_REWARD, True, {}
-        
-        return self._get_state(), NORMAL_REWARD, False, {}
+        if won is None:
+            reward, done, info = TIE_REWARD, True, {}
+        elif won:
+            reward, done, info = WIN_REWARD, True, {}
+
+        self.turn = not self.turn
+
+        return state, NORMAL_REWARD, False, {}
     
     def reset(self, seed=None, options=None):
         self.engine.reset()
         return self._get_state(), {}
 
-
     def _get_state(self):
+        p1, p2 = self.engine.get_custom_board()
+        turn = "P1" if self.engine.turn else "P2"
         return {
-            "observations": self.engine.get_custom_board(),
-            "action_mask": self.action_mask
+            "observations": p1 + p2,
+            "action_mask": self.action_mask,
+            "player_1_board": p1,
+            "player_2_board": p2,
+            "current_player": turn
         }
+    

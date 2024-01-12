@@ -28,6 +28,10 @@ class AdvancedDiscreteEnv(Env):
     def action_mask(self) -> np.array:
         pass
 
+    @abstractmethod
+    def print_game(self) -> None:
+        pass
+
 class ConnectNEnv(AdvancedDiscreteEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
@@ -84,10 +88,12 @@ class ConnectNEnv(AdvancedDiscreteEnv):
             reward, done, info = TIE_REWARD, True, {}
         elif won:
             reward, done, info = WIN_REWARD, True, {}
+        else:
+            reward, done, info = NORMAL_REWARD, False, {}
 
         self.turn = not self.turn
 
-        return state, NORMAL_REWARD, False, {}
+        return state, reward, done, info
     
     def reset(self, seed=None, options=None):
         self.engine.reset()
@@ -104,3 +110,5 @@ class ConnectNEnv(AdvancedDiscreteEnv):
             "current_player": turn
         }
     
+    def print_game(self):
+        self.engine.print_board()

@@ -26,11 +26,20 @@ class Game:
         # when it's not its turn.
         self.only_once_per_player = only_once_per_player
 
+        # Search statistics
+        self.child_visits = []
+        self.root_values = []
+        
+    def length_of_history(self):
+        """ Return the length of the history
+        """
+        return len(self.history["P1"]) if not self.only_once_per_player else max(len(self.history["P1"]), len(self.history["P2"]))
+
     def terminal(self):
         """ Boolean which informs
         whether the game has ended
         """
-        return len(self.game_env.possible_actions) > 0 and self.is_done
+        return len(self.game_env.possible_actions) == 0 or self.is_done
     
     def make_image(self, idx):
         """ Returns the observation at the given index
@@ -72,11 +81,6 @@ class Game:
         """
         return self.current_player
     
-    def action_history(self):
-        """ Return list of executed action
-        """
-        return self.action_history
-    
     def legal_actions(self):
         """ Return a list of legal actions
         """
@@ -94,3 +98,17 @@ class Game:
         action_space_cardinality = self.game_env.action_space.n
         if mask: return np.ones((action_space_cardinality))
         else: return np.arange(0, action_space_cardinality)
+
+    def store_search_statistics(self, root):
+        sum_visits = sum(child.visit_count for child in root.children.values())
+        self.child_visits.append([
+            root.children[a].visit_count / sum_visits if a in root.children else 0
+            for a in self.action_space(mask=False)
+        ])
+        self.root_values.append(root.value())
+
+    def present_game(self):
+        self.game_env.print_game()
+
+    def reset(self):
+        self.game_env.reset()

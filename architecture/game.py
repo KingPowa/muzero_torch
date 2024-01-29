@@ -50,7 +50,15 @@ class Game:
         
         return torch.cat((torch.cat(sub_history_P1, dim=1), torch.cat(sub_history_P2, dim=1),), dim=1)
     
+    def sample_position(self):
+        # TO-DO: case for only_once
+        if self.only_once_per_player:
+            pass
+        else:
+            return np.random.choice(np.arange(len(self.history["P1"])))
+    
     def _make_subhistory(self, idx, player):
+        # TO-DO: case for only_once
         idx = len(self.history[player]) + idx if idx < 0 else idx
         sub_history = self.history[player][max(0, idx - self.history_len + 1): idx + 1]
         left_history = self.history_len-len(sub_history)
@@ -72,6 +80,20 @@ class Game:
         self.rewards.append(reward)
 
         self.current_player = observation_dict["current_player"]
+
+    def make_target(self, index: int, unroll_steps: int, td_steps: int, discount: float):
+        targets = []
+        # for each step, we calculate the value. It's the next N rewards (weighted) + the N step estimated value 
+        for curr_idx in range(index, index + unroll_steps):
+            # N-step value function estimate
+            value = self.root_values[curr_idx + td_steps] * discount ** td_steps if (len(self.root_values) > curr_idx + td_steps) else 0
+            # Sum of all the rewards from curr_idx to curr_idx + td_steps
+            for i, reward in enumerate(self.rewards[curr_idx:curr_idx+td_steps]):
+                # Sum to the value the reward multiplied by the discount
+                value += reward * discount ** i
+            # Value is now the estimated value function at step curr_idx. Target is this value.
+            targets.append((value, self.rewards[curr_idx], self.child_visits[curr_idx]) if curr_idx < len(self.root_values) else (0,0, []))
+        return targets
 
     def _board_name(self, player):
         return "player_1_board" if player == "P1" else "player_2_board"

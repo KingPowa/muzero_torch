@@ -50,7 +50,9 @@ class MuZeroConfig:
                  history_len = 7, max_moves = 30,
                  root_dirichlet_alpha = 0.3, root_exploration_factor = 0.25,
                  known_bounds = None, c1 = 1.25, c2 = 19.652, num_simulations = 100,
-                 discount = 0.99):
+                 discount = 0.99, lr_decay = 0.1, lr_decay_steps = 50000, momentum = 0.9,
+                 lr = 0.01, training_steps = int(1000e3), max_buffer_size = int(1e6), 
+                 batch_size = 1024, gradient_scale_factor = 0.5):
         self.game_class = game_class
         self.game_configs = game_configs
 
@@ -63,6 +65,14 @@ class MuZeroConfig:
         self.c2 = c2
         self.num_simulations = num_simulations
         self.discount = discount
+        self.lr_decay = lr_decay
+        self.lr_decay_steps = lr_decay_steps
+        self.momentum = momentum
+        self.lr = lr
+        self.training_steps = training_steps
+        self.max_buffer_size = max_buffer_size
+        self.batch_size = batch_size
+        self.gradient_scale_factor = gradient_scale_factor
 
     def new_game(self):
         return Game(self.game_class(**self.game_configs), self.history_len) 
@@ -72,6 +82,11 @@ class MuZeroConfig:
             return 1.0
         else:
             return 0.0
+        
+    def decaying_func(self):
+        def decaying(step):
+            return self.lr * self.lr_decay**(step / self.lr_decay_steps)
+        return decaying
 
 def play_game(config: MuZeroConfig, network: MuZeroNetwork) -> Game:
     game = config.new_game()

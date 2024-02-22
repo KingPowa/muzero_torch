@@ -1,6 +1,9 @@
 import torch
+import os
+from itertools import chain
 from networks.architecture import *
-from typing import Tuple, NamedTuple
+from typing import Tuple, NamedTuple, List, Dict
+from torch import Tensor
 import utils as ut
 
 SUPPORT_SIZE_DEFAULT = 601
@@ -11,6 +14,9 @@ class NetworkOutput(NamedTuple):
     reward: torch.Tensor
     policy_logits: torch.Tensor
     hidden_state: torch.Tensor
+
+    def unpack(self) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        return self.value, self.reward, self.policy_logits, self.hidden_state
 
 class MuZeroNetwork:
 
@@ -34,7 +40,12 @@ class MuZeroNetwork:
         
         self.prediction_support_size = configs['prediction']['support_size']
         self.dynamics_support_size = configs['dynamics']['support_size']
+        self.network_path = configs['path']
+        self.max_save = configs['max_save']
         self.action_space_size = n_possible_actions
+
+    def parameters(self):
+        return chain(self.prediction_network.parameters(), self.representation_network.parameters(), self.dynamics_network.parameters())
 
     def default_configs(self, configs):
         if configs is None:
@@ -81,6 +92,12 @@ class MuZeroNetwork:
             if not (configs["dynamics"]['support_size']-1) % 2 == 0: 
                 print("[NETWORK - Dynamics] Support Size invalid. Set to default = {}.".format(SUPPORT_SIZE_DEFAULT))
                 configs["dynamics"]['support_size'] = SUPPORT_SIZE_DEFAULT
+
+        if "path" not in configs:
+            configs["path"] = "model_save"
+
+        if "max_save" not in configs:
+            configs["max_save"] = 3
 
         return configs
 
@@ -173,7 +190,24 @@ class MuZeroNetwork:
         result = torch.sum(support_vector*w_softmax, dim=1, keepdim=True) # Keep dims make it N x D -> N x 1
         # Result is trained with a scaling function h(x), apply it inversely
         return inverse_h(result)
-
+    
+    def save_network(self):
+        networks = [(net, name) for net, name in zip([self.dynamics_network, self.prediction_network, self.representation_network], ["dynamics", "prediction", "representation"])]
+        if not os.path.exists(self.network_path):
+            os.makedirs(self.network_path)
+        for net, name in networks:
+            ut.remove_if_max(self.network_path, name, self.max_save)
+            torch.save(net.state_dict(), os.path.join(self.network_path, name + "_" + str(ut.current_milli_time())))
+    
+    def load_network(self) -> Dict[str, bool]:
+        networks: List[Tuple[torch.nn.Module, str]] = [(net, name) for net, name in zip([self.dynamics_network, self.prediction_network, self.representation_network], ["dynamics", "prediction", "representation"])]
+        net_dict = {name:False for name[1] in networks}
+        for net, name in networks:
+            filenet = ut.find_latest(self.network_path, name)
+            if filenet:
+                net.load_state_dict(torch.load(filenet))
+                net_dict[name] = True
+        return net_dict
 
 def h(x: torch.Tensor, eps = 1e-2) -> torch.Tensor:
     elem = torch.sqrt(torch.sign(x)+1) - 1

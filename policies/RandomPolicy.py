@@ -1,4 +1,4 @@
-from ray.rllib.utils.typing import TensorStructType
+from torch import Tensor
 from typing import (
     List,
     Union,
@@ -11,7 +11,7 @@ class RandomPolicy:
 
     def compute_actions(
         self,
-        obs_batch: Union[List[TensorStructType], TensorStructType]
+        obs_batch: Union[List[Tensor], Tensor]
     ):
         if isinstance(obs_batch, List):
             return [self.compute_action(obs_sample) for obs_sample in obs_batch], [], {}

@@ -1,0 +1,23 @@
+version: '3.4'
+
+services:
+  torch_env:
+    image: torch-env
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+    stdin_open: true 
+    tty: true 
+    volumes:
+    - ".././:/app:rw"
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    
+      
+
+

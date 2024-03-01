@@ -23,3 +23,6 @@ class ReplayBuffer:
                  game.action_history[position:position+unroll_steps],
                  game.make_target(position, unroll_steps, td_steps, 0.99))
                  for game, position in game_position]
+    
+    def add_game(self, game: Game):
+        self.buffer.append(game)

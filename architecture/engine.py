@@ -52,7 +52,8 @@ class MuZeroConfig:
                  known_bounds = None, c1 = 1.25, c2 = 19.652, num_simulations = 100,
                  discount = 0.99, lr_decay = 0.1, lr_decay_steps = 50000, momentum = 0.9,
                  lr = 0.01, training_steps = int(1000e3), max_buffer_size = int(1e6), 
-                 batch_size = 1024, gradient_scale_factor = 0.5):
+                 batch_size = 1024, gradient_scale_factor = 0.5, weight_decay = 1e-4, 
+                 step_for_saving = 10, unroll_steps = 5, td_steps = 10):
         self.game_class = game_class
         self.game_configs = game_configs
 
@@ -73,6 +74,10 @@ class MuZeroConfig:
         self.max_buffer_size = max_buffer_size
         self.batch_size = batch_size
         self.gradient_scale_factor = gradient_scale_factor
+        self.weight_decay = weight_decay
+        self.step_for_saving = step_for_saving
+        self.unroll_steps = unroll_steps
+        self.td_steps = td_steps
 
     def new_game(self):
         return Game(self.game_class(**self.game_configs), self.history_len) 
@@ -97,8 +102,7 @@ def play_game(config: MuZeroConfig, network: MuZeroNetwork) -> Game:
         # obtain a hidden state given the current observation.
         root = Node(0)
         current_observation = game.make_image(-1)
-        expand_node(root, game.to_play(), game.action_mask(),
-                    network.from_output_to_scalar(network.initial_inference(current_observation), softmax=False))
+        expand_node(root, game.to_play(), game.action_mask(), network.from_output_to_scalar(network.initial_inference(current_observation), softmax=False))
         add_exploration_noise(config, root)
 
         # We then run a Monte Carlo Tree Search using only action sequences and the
@@ -166,7 +170,7 @@ def ucb_score(config: MuZeroConfig, parent: Node, node: Node, min_max: MinMaxSta
     probability_term *= config.c1 + np.log((parent.visit_count + config.c2 + 1) / config.c2)
     return min_max.normalize(node.value()) + probability_term
 
-def backpropagate(config: MuZeroConfig, visited_childs: List, player: str, value: float, min_max: MinMaxStats):
+def backpropagate(config: MuZeroConfig, visited_childs: List[Node], player: str, value: float, min_max: MinMaxStats):
     for child in visited_childs[::-1]:
         child.value_sum += value if child.player == player else -value
         child.visit_count += 1

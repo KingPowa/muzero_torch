@@ -1,6 +1,18 @@
 import torch
 import numpy as np
+from typing import List, Tuple
+from torch import Tensor
 from envs import AdvancedDiscreteEnv
+
+class Target:
+
+    def __init__(self, value: Tensor, reward: Tensor, action: int):
+        self.value = value
+        self.reward = reward
+        self.action = action
+
+    def unpack(self) -> Tuple[Tensor, Tensor, int]:
+        return self.value, self.reward, self.action
 
 # Class that acts as an adapter for an env for the Muzero
 class Game:
@@ -81,7 +93,7 @@ class Game:
 
         self.current_player = observation_dict["current_player"]
 
-    def make_target(self, index: int, unroll_steps: int, td_steps: int, discount: float):
+    def make_target(self, index: int, unroll_steps: int, td_steps: int, discount: float) -> List[Target]:
         targets = []
         # for each step, we calculate the value. It's the next N rewards (weighted) + the N step estimated value 
         for curr_idx in range(index, index + unroll_steps):
@@ -92,7 +104,7 @@ class Game:
                 # Sum to the value the reward multiplied by the discount
                 value += reward * discount ** i
             # Value is now the estimated value function at step curr_idx. Target is this value.
-            targets.append((value, self.rewards[curr_idx], self.child_visits[curr_idx]) if curr_idx < len(self.root_values) else (0,0, []))
+            targets.append(Target(value, self.rewards[curr_idx], self.child_visits[curr_idx]) if curr_idx < len(self.root_values) else (0,0, []))
         return targets
 
     def _board_name(self, player):

@@ -1,6 +1,7 @@
 import torch
 import os
 from itertools import chain
+from architecture.game import Target
 from networks.architecture import *
 from typing import Tuple, NamedTuple, List, Dict
 from torch import Tensor
@@ -174,11 +175,11 @@ class MuZeroNetwork:
         # How many steps / batches the network has been trained for.
         return 0
     
-    def from_output_to_scalar(self, network_output: NetworkOutput, softmax=False, type_output="prediction"):
+    def from_output_to_scalar(self, network_output: NetworkOutput, softmax=False):
         value = self.from_support_to_scalar(network_output.value, 
-                                                      self.prediction_support_size if type_output == "prediction" else self.dynamics_support_size)
+                                                      self.prediction_support_size)
         reward = self.from_support_to_scalar(network_output.reward, 
-                                                      self.prediction_support_size if type_output == "prediction" else self.dynamics_support_size)
+                                                      self.dynamics_support_size)
         if softmax: policy_logits = torch.nn.functional.softmax(network_output.policy_logits, dim=1)
         else: policy_logits = network_output.policy_logits
         return NetworkOutput(value, reward, policy_logits, network_output.hidden_state)
@@ -190,6 +191,32 @@ class MuZeroNetwork:
         result = torch.sum(support_vector*w_softmax, dim=1, keepdim=True) # Keep dims make it N x D -> N x 1
         # Result is trained with a scaling function h(x), apply it inversely
         return inverse_h(result)
+    
+    def from_target_to_support(self, target: Target, softmax_repr = False):
+        value, reward, action = target.unpack()
+        value = self.from_scalar_to_support(value, self.prediction_support_size)
+        reward = self.from_scalar_to_support(reward, self.dynamics_support_size)
+        if softmax_repr:
+            logits = torch.ones((1, self.action_space_size))
+            logits *= float("inf")
+            logits[0, action] = -float("inf")
+        else:
+            logits = torch.zeros((1, self.action_space_size))
+            logits[0, action] = 1.0
+        return value, reward, logits
+
+    def from_scalar_to_support(self, x: torch.Tensor, support_size: int) -> torch.Tensor:
+        x.clamp_(min, max)
+        x_low = x.floor()
+        x_high = x.ceil()
+        p_high = (x - x_low)
+        p_low = 1 - p_high
+
+        target = torch.zeros(x.shape[0], x.shape[1], support_size).to(x.device)
+        x_high_idx, x_low_idx = x_high - min, x_low - min
+        target.scatter_(2, x_high_idx.long().unsqueeze(-1), p_high.unsqueeze(-1))
+        target.scatter_(2, x_low_idx.long().unsqueeze(-1), p_low.unsqueeze(-1))
+        return target
     
     def save_network(self):
         networks = [(net, name) for net, name in zip([self.dynamics_network, self.prediction_network, self.representation_network], ["dynamics", "prediction", "representation"])]
